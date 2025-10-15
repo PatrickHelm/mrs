@@ -1,0 +1,136 @@
+[Warning: MATLAB has disabled some advanced graphics rendering features by switching to software OpenGL. For more information, click <a href="matlab:opengl('problems')">here</a>.] 
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 10 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 25
+Minimum Total Expected Cost: 995.3902
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1003.6163
+Optimality gap in % total cost (CEC): 0.82642
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1035.6483
+Optimality gap in % total cost (R1): 4.0445
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1045.9063
+Optimality gap in % total cost (R2): 5.075
+Elapsed time is 28.289774 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 30 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 19
+Minimum Total Expected Cost: 2105.9632
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 2138.0068
+Optimality gap in % total cost (CEC): 1.5216
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 2106.864
+Optimality gap in % total cost (R1): 0.042771
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 2108.0898
+Optimality gap in % total cost (R2): 0.10098
+Elapsed time is 9.897480 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 20 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 23
+Minimum Total Expected Cost: 1596.7422
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1611.4582
+Optimality gap in % total cost (CEC): 0.92162
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1613.5809
+Optimality gap in % total cost (R1): 1.0546
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1619.3229
+Optimality gap in % total cost (R2): 1.4142
+Elapsed time is 26.508353 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 15 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 24
+Minimum Total Expected Cost: 1305.7038
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1316.4738
+Optimality gap in % total cost (CEC): 0.82484
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1333.7038
+Optimality gap in % total cost (R1): 2.1444
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1341.7038
+Optimality gap in % total cost (R2): 2.7571
+Elapsed time is 16.776397 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 17.5 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 24
+Minimum Total Expected Cost: 1453.6494
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1466.2841
+Optimality gap in % total cost (CEC): 0.86917
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1476.0042
+Optimality gap in % total cost (R1): 1.5378
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1482.8752
+Optimality gap in % total cost (R2): 2.0105
+Elapsed time is 31.108468 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 12.5 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 25
+Minimum Total Expected Cost: 1152.5219
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1162.0085
+Optimality gap in % total cost (CEC): 0.82312
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1186.6509
+Optimality gap in % total cost (R1): 2.9612
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1195.7799
+Optimality gap in % total cost (R2): 3.7533
+Elapsed time is 26.349230 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 25 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 22
+Minimum Total Expected Cost: 1866.0096
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1886.8902
+Optimality gap in % total cost (CEC): 1.119
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1873.2634
+Optimality gap in % total cost (R1): 0.38874
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1876.7473
+Optimality gap in % total cost (R2): 0.57544
+Elapsed time is 22.292468 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 22.5 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 23
+Minimum Total Expected Cost: 1734.4433
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 1751.8213
+Optimality gap in % total cost (CEC): 1.0019
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1746.1974
+Optimality gap in % total cost (R1): 0.67769
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1750.8103
+Optimality gap in % total cost (R2): 0.94365
+Elapsed time is 16.093126 seconds.
+<------------Planning horizon : 4 periods --------------------->
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+For planning horizon of 4 periods and observed price: 27.5 and initial belief 0.1         0.9 in period 1:
+Optimal Order Decision: 20
+Minimum Total Expected Cost: 1990.1298
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (CEC): 29): 2015.6716
+Optimality gap in % total cost (CEC): 1.2834
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R1): 17): 1993.6136
+Optimality gap in % total cost (R1): 0.17506
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Suboptimal Cost (order decision (R2): 16): 1995.9685
+Optimality gap in % total cost (R2): 0.29338
+Elapsed time is 24.725474 seconds.
