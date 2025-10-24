@@ -37,7 +37,7 @@ def get_demand_dist(dist, demand, variables):
     else:
         demand_dist = np.zeros_like(x)
 
-    plt.plot(np.arange(demand + 1), demand_dist)
-    plt.show()
+    # plt.plot(np.arange(demand + 1), demand_dist)
+    # plt.show()
 
     return demand_dist
