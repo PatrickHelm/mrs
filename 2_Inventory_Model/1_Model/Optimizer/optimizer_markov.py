@@ -1,14 +1,3 @@
-"""
-Optimizer_Markov.py
-Translated from Optimizer_Markov.m (MATLAB) -> Python
-
-Notes:
-- Requires: numpy, pandas
-- The heavy function `backward_recursion_markov` is provided as a placeholder/stub and must be replaced
-  with a faithful Python implementation of the original MATLAB function.
-- If the Excel file 'Stochastic_Regimes_MR-MO.xlsx' is missing, the script falls back to default placeholders.
-"""
-
 import time
 import numpy as np
 import pandas as pd
@@ -28,16 +17,13 @@ def main():
     # suboptimal_decision_vector_R1 = xlsread(...,'B4:B8')  -> B4..B8 is rows 4..8 of column B
     # suboptimal_decision_vector_R2 = xlsread(...,'C4:C8')
     # suboptimal_decision_matrix_CEC = xlsread(...,'F4:J8') -> rows 4..8, columns F..J (5 columns)
-    if df_excel is not None:
-        # pandas read with header=None -> first row is index 0 corresponding to Excel row 1
-        # So Excel row r maps to df_excel row r-1
-            # Extract ranges using 0-based indices
-            r_start = 4 - 1
-            r_end = 8 - 1
-            # Column B is index 1, C is index 2, F..J is 5..9
-            suboptimal_decision_vector_R1 = df_excel.iloc[r_start:r_end+1, 1].astype(float).to_numpy()
-            suboptimal_decision_vector_R2 = df_excel.iloc[r_start:r_end+1, 2].astype(float).to_numpy()
-            suboptimal_decision_matrix_CEC = df_excel.iloc[r_start:r_end+1, 5:10].astype(float).to_numpy()
+    # Extract ranges using 0-based indices
+    r_start = 4 - 1
+    r_end = 8
+    # Column B is index 1, C is index 2, F..J is 5..9
+    suboptimal_decision_vector_R1 = df_excel.iloc[r_start:r_end, 1].astype(float).to_numpy()
+    suboptimal_decision_vector_R2 = df_excel.iloc[r_start:r_end, 2].astype(float).to_numpy()
+    suboptimal_decision_matrix_CEC = df_excel.iloc[r_start:r_end, 5:10].astype(float).to_numpy()
 
     # _ _INVENTORY COST _ _
     variables = {}
@@ -55,25 +41,21 @@ def main():
     start_inventory = 0
 
     # _ _PRICE PROCESS _ _
-    variables['k'] = np.array([[0.5, 0.5], [0.5, 0.5]])
+    variables['k'] = np.asarray([[0.5, 0.5], [0.5, 0.5]])
     variables['m'] = 2
-    beliefs = [0.1, 0.3, 0.5, 0.7, 0.9]
-    variables['prices'] = [10, 15, 20, 25, 30]
-    price_dist = ['MR', 'MO']
-    variables['P_pr_reg'] = 0  # defined for compatibility
+    beliefs = np.asarray([0.1, 0.3, 0.5, 0.7, 0.9])
+    variables['prices'] = np.asarray([10, 15, 20, 25, 30])
+    price_dist = ['mean_reverting', 'momentum'] # random_walk
+    variables['P_pr_reg'] = 0  
 
-    # Emulate MATLAB diary by writing prints to console (user may redirect)
-    # Outer loops: MATLAB loops over i=1:numel(variables.prices), h and j loops are commented to run only first element (1:1)
     num_prices = len(variables['prices'])
     for i in range(num_prices):
         observed_price = variables['prices'][i]
-        for h in range(1):  # MATLAB uses 1:1 in the provided script; change to range(num_prices) if you want full sweep
+        for h in range(num_prices):
             last_price = variables['prices'][h]
-            for j in range(1):  # MATLAB uses 1:1; change to range(len(beliefs)) to iterate all beliefs
+            for j in range(len(beliefs)):
                 pi1 = beliefs[j]
                 variables['pi'] = [pi1, 1.0 - pi1]
-
-                allSave = [None] * variables['t_max']
 
                 # MATLAB loop: for T = variables.t_max
                 for T in [variables['t_max']]:
@@ -85,8 +67,7 @@ def main():
                         suboptimal_decision_matrix_CEC, suboptimal_decision_vector_R1, suboptimal_decision_vector_R2
                     )
                     if periods:
-                        # periods expected as list where index 0 behaves like periods{1} in MATLAB
-                        p0 = periods[0]
+                        p0 = periods[0]  # results for period 0
                         print(f"<------------Planning horizon : {T} periods --------------------->")
                         print("-" * 70)
                         print(f"For planning horizon of {T} periods, and observed price sequence: {last_price} --> {observed_price} and initial belief {variables['pi']}:")
@@ -124,9 +105,7 @@ def main():
 
                     t_elapsed = time.time() - t0
                     print(f"(Elapsed time: {t_elapsed:.4f} seconds)")
-                    # MATLAB stored allSave{T} = {periods}; here we store at index T-1
-                    if 1 <= T <= len(allSave):
-                        allSave[T-1] = periods
+                    
     # End loops
     print("Finished run.")
 
