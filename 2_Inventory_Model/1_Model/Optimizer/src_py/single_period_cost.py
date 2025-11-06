@@ -5,12 +5,12 @@ from numba import njit
 def single_period_cost(procurement_decision: int, 
                        penalty_cost: float, 
                        holding_cost: float, 
-                       unit_cost: float, 
+                       price: float, 
                        d_max: int, 
                        inventory: int, 
                        demand_dist: np.ndarray) -> float:
     # start with procurement cost
-    costs = unit_cost * procurement_decision
+    costs = price * procurement_decision
     for d in range(d_max + 1):
         dProb = demand_dist[d]
         # add holding cost
