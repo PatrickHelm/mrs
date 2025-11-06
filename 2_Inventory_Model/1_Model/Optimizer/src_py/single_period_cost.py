@@ -1,19 +1,20 @@
-def single_period_cost(y, cp, ch, p, d_max, I, demand_dist, dist):
-    def positive_or_zero(x):
-        return max(x, 0)
+import numpy as np
+from numba import njit
 
-    def demand_prob(dist, d):
-        # Placeholder for demand_prob function, needs actual implementation
-        pass
-
-    costs = p * y
-
-    if dist == 'uniform':
-        for d in range(d_max + 1):
-            costs += ch / (d_max + 1) * positive_or_zero(I + y - d) + cp / (d_max + 1) * positive_or_zero(d - I - y)
-    else:
-        for d in range(d_max + 1):
-            dProb = demand_prob(demand_dist, d)
-            costs += ch * dProb * positive_or_zero(I + y - d) + cp * dProb * positive_or_zero(d - I - y)
-
+# @njit
+def single_period_cost(procurement_decision: int, 
+                       penalty_cost: float, 
+                       holding_cost: float, 
+                       unit_cost: float, 
+                       d_max: int, 
+                       inventory: int, 
+                       demand_dist: np.ndarray) -> float:
+    # start with procurement cost
+    costs = unit_cost * procurement_decision
+    for d in range(d_max + 1):
+        dProb = demand_dist[d]
+        # add holding cost
+        costs += holding_cost * dProb * max(0, inventory + procurement_decision - d)
+        # add penalty cost
+        costs += penalty_cost * dProb * max(0, d - inventory - procurement_decision)
     return costs
