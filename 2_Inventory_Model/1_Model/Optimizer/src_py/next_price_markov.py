@@ -1,27 +1,17 @@
 import numpy as np
+from numba import njit
 
-def next_price_markov(markovmodel, prices, t, PI_markov):
-    NoP = len(prices)
-    nP_markov = np.zeros((NoP**t, NoP))
-    R1 = markovmodel[0]  # probability transition matrix for R1
-    R2 = markovmodel[1]  # probability transition matrix for R2
+# @njit
+def next_price_markov(markov_model: np.ndarray, num_prices: int, t: int, belief_markov: np.ndarray, num_regimes: int):
+    next_price_markov = np.zeros((num_prices**t, num_prices))
+    i = 0
+    for j in range(num_prices**t):
+        for p_t in range(num_prices):
+            for p_future in range(num_prices):
+                for r in range(num_regimes):
+                    next_price_markov[j, p_future] += belief_markov[t-1, r, i, p_t] * markov_model[r, p_t, p_future]
+        if (i + 1) % num_prices == 0:
+            i = -1
+        i += 1
 
-    if t == 1:
-        for p_t in range(NoP):  # p_t is price observation in period t
-            for p_future in range(NoP):  # p_future = p_t+1
-                nP_markov[p_t, p_future] = PI_markov[0] * R1[p_t, p_future] + PI_markov[1] * R2[p_t, p_future]
-    else:
-        PI_R1 = PI_markov[t-1][0]  # next period regime belief at time t for R1
-        PI_R2 = PI_markov[t-1][1]  # next period regime belief at time t for R2
-        j = 0  # index for resulting matrix
-        i = 0  # index PI_R1 and PI_R2
-        while j < NoP**t:
-            for p_t in range(NoP):
-                for p_future in range(NoP):
-                    nP_markov[j, p_future] = PI_R1[i, p_t] * R1[p_t, p_future] + PI_R2[i, p_t] * R2[p_t, p_future]
-                j += 1
-            if (i + 1) % NoP == 0:
-                i = -1
-            i += 1
-
-    return nP_markov
+    return next_price_markov
