@@ -8,7 +8,7 @@ from single_period_cost import single_period_cost
 from update_pi import update_pi
 from needed_pi import needed_pi
 from get_next_prices import get_next_prices
-from aux_matrix import aux_matrix
+from reorder import reorder
 from next_price import next_price
 
 def backward_recursion(variables, observed_price, start_inventory, dist, solution_method, suboptimal_decision_CEC, suboptimal_decision_R1, suboptimal_decision_R2):
@@ -56,7 +56,7 @@ def backward_recursion(variables, observed_price, start_inventory, dist, solutio
             period_min_order = np.zeros(all_comb_size[0], dtype=int)
             next_prices = get_next_prices(nP[t + 1], all_comb[:, 0], observed_price, prices, t + 1)
             if t != 0:
-                next_prices = aux_matrix(next_prices, prices, I_max, t + 1)
+                next_prices = reorder(next_prices, prices, I_max, t + 1)
             for s in range(all_comb_size[0]):
                 mins = get_mins(PI_needed, prices, t + 1, all_comb[s, 2], all_comb[s, 0], periods[t + 1]['period_min_cost'], inv)
                 for y in range(I_max + 1):
