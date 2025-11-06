@@ -2,7 +2,8 @@ import numpy as np
 from numba import njit
 
 # @njit
-def next_price_markov(markov_model: np.ndarray, num_prices: int, t: int, belief_markov: np.ndarray, num_regimes: int):
+def next_price_markov(markov_model: np.ndarray, num_prices: int, t: int, belief_markov: np.ndarray):
+    num_regimes = belief_markov.shape[1]
     next_price_markov = np.zeros((num_prices**t, num_prices))
     i = 0
     for j in range(num_prices**t):
