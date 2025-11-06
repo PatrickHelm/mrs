@@ -1,29 +1,34 @@
 import numpy as np
+from numba import njit
 
-def reorder_markov(next_prices, b_t, I_max, t):
+# @njit
+def reorder_markov(next_prices: np.ndarray, 
+                   belief_vector: np.ndarray, 
+                   maximum_inventory: int, 
+                   t: int,
+                   ) -> np.ndarray:
     """
     Reorder creates a large matrix with copies of 'next_prices' to fit the
     observed states in periods t.
     """
-    I_max += 1  # labelimg adjustment
-    fac1 = len(b_t)                # Number of different prices
-    fac2 = I_max * fac1           # Number of inventory states for each price
+    maximum_inventory += 1  # labeling adjustment
+    # Number of different prices
+    num_prices = len(belief_vector)      
+    # Number of inventory states for each price          
+    num_inv_states = maximum_inventory * num_prices
 
-    num_rows = (fac1 ** t) * I_max
-    res = np.zeros((num_rows, fac1))
-    
-    start = 0
-    a = 0
-    b = fac2 * fac1
+    # determine number of times to repeat blocks
+    groups = next_prices.shape[0] // num_prices
+    # Each group of num_prices rows will be tiled num_inv_states times
+    result = np.zeros((num_prices**t * maximum_inventory, num_prices), dtype=float)
 
-    while a < len(res):
-        ende = start + fac1       # Python slicing is exclusive, so no -1
-        # Select the slice and replicate it `fac2` times
-        block = np.tile(next_prices[start:ende, :], (fac2, 1))
-        res[a:b, :] = block
+    write_position = 0
+    for g in range(groups):
+        start = g * num_prices
+        end = start + num_prices
+        block = np.tile(next_prices[start:end, :], (num_inv_states, 1))
+        end_write = write_position + block.shape[0]
+        result[write_position:end_write, :] = block
+        write_position = end_write
 
-        start = ende
-        a = b
-        b += fac1 * fac2
-
-    return res
+    return result
