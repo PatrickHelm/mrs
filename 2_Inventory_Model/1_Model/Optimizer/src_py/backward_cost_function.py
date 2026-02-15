@@ -1,77 +1,117 @@
 import numpy as np
+from numba import njit
 from .single_period_cost import single_period_cost
 
-def backward_cost_function(
-    procurement_decision: int,
-    penalty_cost: float,
-    holding_cost: float,
-    price: float,
-    d_max: int,
-    I_max: int,
-    inventory: int,
-    next_price: np.ndarray,   # 1D array, length = number of price states
-    min_value_functions: np.ndarray,         # 1D array of future value function (min costs)
-    demand_dist: np.ndarray,  # 1D array, P(D = 0..d_max)
-) -> float:
-    I_y = inventory + procurement_decision
-    block = next_price.shape[0]
+DIST_UNIFORM = 0
 
-    # Cost if current period were the last one
-    period_cost = single_period_cost(
-        procurement_decision,
-        penalty_cost,
-        holding_cost,
-        price,
-        d_max,
-        inventory,
-        demand_dist,
-    )
 
-    # Probability that inventory in t+1 is zero: sum_{d >= I_y} P(D = d)
-    prob_inv_zero = demand_dist[I_y: d_max + 1].sum()
+@njit(cache=True)
+def backward_cost_function(y, cp, ch, p, d_max, I_max, I, next_price_vec,
+                           mins, demand_dist, dist_code):
+    """Calculate total expected cost for ordering y in a non-terminal period.
 
+    Combines immediate period cost with expected future costs over all
+    possible demand realizations and next-period prices.
+
+    Parameters
+    ----------
+    y : int
+        Order quantity.
+    cp : float
+        Shortage penalty cost.
+    ch : float
+        Holding cost.
+    p : float
+        Current price.
+    d_max : int
+        Maximum demand.
+    I_max : int
+        Maximum inventory.
+    I : int
+        Current inventory level.
+    next_price_vec : np.ndarray, shape (n_prices,)
+        Probabilities of each next-period price.
+    mins : np.ndarray
+        Minimum future costs from period t+1 (precomputed slice).
+    demand_dist : np.ndarray, shape (d_max+1,)
+        Demand probability distribution.
+    dist_code : int
+        0=uniform, else general.
+
+    Returns
+    -------
+    cost : float
+    """
+    d_clean = d_max + 1  # number of demand levels (0 is also possible)
     cost = 0.0
+    period_cost = single_period_cost(y, cp, ch, p, d_max, I, demand_dist, dist_code)
 
-    # --- Case 1: I + y == 0 ---------------------------------------------
-    if I_y == 0:
-        # ende = block * (I_y + 1) = block
-        cost += prob_inv_zero * np.dot(next_price, min_value_functions[:block])
+    # Probability that inventory becomes 0 (demand >= I+y)
+    # MATLAB: sum(demand_dist(I+y+1:d_clean)) → Python: sum(demand_dist[I+y:])
+    prob_I_gets_0 = 0.0
+    for idx in range(I + y, d_clean):
+        prob_I_gets_0 += demand_dist[idx]
 
-    # --- Case 2: 0 < I + y <= I_max and I + y <= d_max -------------------
-    elif (I_y > 0) and (I_y <= I_max) and (I_y - d_max <= 0):
-        # Probabilities that inventory becomes > 0:
-        # [P(D = I_y - 1), ..., P(D = 0)]
-        prob_inv_gt_zero = demand_dist[:I_y][::-1]  # length I_y
+    # Probability that inventory stays > 0: for d = I+y-1 down to 0
+    # Result is ordered [d=I+y-1, d=I+y-2, ..., d=1, d=0]
+    block = len(next_price_vec)
 
-        # Matrix of joint probabilities (positive inventory, next price)
-        prob_price_mat = prob_inv_gt_zero[:, None] * next_price[None, :]
-
-        # First block: inventory becomes 0 in t+1
-        cost += prob_inv_zero * np.dot(next_price, min_value_functions[:block])
-
-        # Remaining blocks: inventory > 0 in t+1
-        n_pos = prob_inv_gt_zero.shape[0]
-        mins_block = min_value_functions[block : block + n_pos * block].reshape(n_pos, block)
-        cost += np.sum(prob_price_mat * mins_block)
-
-    # --- Case 3: else branch (like MATLAB 'else % I+y>I_max') ------------
+    if I + y <= d_max:
+        n_prob = I + y  # number of demand values that leave inventory > 0
+        prob_I_greater_0 = np.empty(n_prob)
+        idx = 0
+        for d in range(I + y - 1, -1, -1):
+            prob_I_greater_0[idx] = demand_dist[d]
+            idx += 1
     else:
-        # Here MATLAB uses probIgreater0 = demand_dist (full vector)
-        prob_inv_gt_zero_full = demand_dist
-        prob_price_mat_full = prob_inv_gt_zero_full[:, None] * next_price[None, :]
+        # All demands leave some inventory
+        prob_I_greater_0 = demand_dist.copy()
 
-        # j = (I + y - d_max) * block + 1   (MATLAB, 1-based)
-        j = (I_y - d_max) * block          # Python, 0-based
+    # prob_price_mat = probIgreater0' * next_price (outer product)
+    n_prob_ig = len(prob_I_greater_0)
+    prob_price_mat = np.empty((n_prob_ig, block))
+    for pi in range(n_prob_ig):
+        for npi in range(block):
+            prob_price_mat[pi, npi] = prob_I_greater_0[pi] * next_price_vec[npi]
 
-        # d loops from d_max down to 0 (actual demand)
-        for d in range(d_max, -1, -1):
-            if I_y - d <= I_max:
-                for np_idx in range(block):
-                    cost += prob_price_mat_full[d, np_idx] * min_value_functions[j]
+    # --- Three branches based on I+y ---
+
+    if I + y == 0:
+        # Inventory in t+1 is always 0 → probIgets0 = 1
+        # MATLAB: ende = block*(I+y+1) = block*1 = block
+        ende = block
+        for i in range(ende):
+            cost += prob_I_gets_0 * next_price_vec[i] * mins[i]
+
+    elif I + y > 0 and I + y <= I_max and I + y - d_max <= 0:
+        # Normal case
+        # First: cost contribution from inventory becoming 0
+        for i in range(block):
+            cost += prob_I_gets_0 * next_price_vec[i] * mins[i]
+
+        # Then: cost contributions from inventory staying > 0
+        j = block  # continues from where the first loop left off
+        for P in range(n_prob_ig):
+            for npi in range(block):
+                cost += prob_price_mat[P, npi] * mins[j]
+                j += 1
+
+    else:
+        # I+y > I_max or I+y - d_max > 0: clipped case
+        # MATLAB: j = (I+y-d_max)*block + 1 → Python: j = (I+y - d_max)*block
+        j = (I + y - d_max) * block
+
+        # MATLAB: for d = d_clean:-1:1 (d is 1-based index into demand levels)
+        for d_idx in range(d_clean - 1, -1, -1):
+            # MATLAB: d goes from d_clean down to 1
+            # MATLAB: I+y-(d-1) → in Python: I+y - d_idx (since d_idx = d_matlab - 1)
+            if I + y - d_idx <= I_max:
+                for npi in range(block):
+                    cost += prob_price_mat[d_idx, npi] * mins[j]
                     j += 1
             else:
                 cost += period_cost
-                return cost + period_cost
+                return cost
 
-    # Add current-period cost
-    return cost + period_cost
+    cost += period_cost
+    return cost

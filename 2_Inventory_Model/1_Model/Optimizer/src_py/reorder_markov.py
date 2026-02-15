@@ -1,34 +1,53 @@
 import numpy as np
 from numba import njit
 
-# @njit
-def reorder_markov(next_prices: np.ndarray, 
-                   belief_vector: np.ndarray, 
-                   maximum_inventory: int, 
-                   t: int,
-                   ) -> np.ndarray:
+
+@njit(cache=True)
+def reorder_markov(next_prices, prices_len, I_max, t):
+    """Create expanded matrix with copies of next_prices for Markov model.
+
+    Equivalent to MATLAB reorderMarkov.m.
+
+    Parameters
+    ----------
+    next_prices : np.ndarray, shape (n_filtered, n_prices)
+        Filtered next-period price probabilities.
+    prices_len : int
+        Number of different prices.
+    I_max : int
+        Maximum inventory level.
+    t : int
+        Current time period (1-based).
+
+    Returns
+    -------
+    res : np.ndarray, shape (prices_len^t * (I_max+1), prices_len)
     """
-    Reorder creates a large matrix with copies of 'next_prices' to fit the
-    observed states in periods t.
-    """
-    maximum_inventory += 1  # labeling adjustment
-    # Number of different prices
-    num_prices = len(belief_vector)      
-    # Number of inventory states for each price          
-    num_inv_states = maximum_inventory * num_prices
+    I_max_adj = I_max + 1
+    fac1 = prices_len
+    fac2 = I_max_adj * fac1
 
-    # determine number of times to repeat blocks
-    groups = next_prices.shape[0] // num_prices
-    # Each group of num_prices rows will be tiled num_inv_states times
-    result = np.zeros((num_prices**t * maximum_inventory, num_prices), dtype=float)
+    # Calculate result size
+    result_rows = 1
+    for _ in range(t):
+        result_rows *= fac1
+    result_rows *= I_max_adj
 
-    write_position = 0
-    for g in range(groups):
-        start = g * num_prices
-        end = start + num_prices
-        block = np.tile(next_prices[start:end, :], (num_inv_states, 1))
-        end_write = write_position + block.shape[0]
-        result[write_position:end_write, :] = block
-        write_position = end_write
+    res = np.zeros((result_rows, fac1))
+    start = 0
+    a = 0
+    b = fac2 * fac1
 
-    return result
+    while a < result_rows:
+        end_idx = start + fac1
+        # Replicate the fac1 rows fac2 times (not I_max_adj like aux_matrix)
+        for rep in range(fac2):
+            offset = a + rep * fac1
+            for row in range(fac1):
+                for col in range(fac1):
+                    res[offset + row, col] = next_prices[start + row, col]
+        start = end_idx
+        a = b
+        b = b + fac1 * fac2
+
+    return res

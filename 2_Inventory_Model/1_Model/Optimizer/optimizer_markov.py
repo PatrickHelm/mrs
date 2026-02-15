@@ -1,113 +1,147 @@
+"""Inventory optimizer — Markov version.
+
+Translated from Optimizer_Markov.m.
+"""
 import time
 import numpy as np
-import pandas as pd
-import os
+import openpyxl
+
 from src_py.backward_recursion_markov import backward_recursion_markov
+
+# --- Solution method codes ---
+EXACT = 0
+CEC = 1
+R1 = 2
+R2 = 3
+
+METHOD_MAP = {'exact': EXACT, 'CEC': CEC, 'R1': R1, 'R2': R2}
+
+# --- Demand distribution codes ---
+DIST_MAP = {'uniform': 0, 'normal': 1, 'poisson': 2, 'nbin': 3, 'manual': 4}
+
+
+def read_excel_range(filepath, sheet_idx, range_str):
+    """Read a rectangular range from an Excel file."""
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb.worksheets[sheet_idx]
+    data = []
+    for row in ws[range_str]:
+        row_data = []
+        for cell in row:
+            val = cell.value
+            row_data.append(float(val) if val is not None else 0.0)
+        data.append(row_data)
+    wb.close()
+    arr = np.array(data, dtype=np.float64)
+    if arr.shape[1] == 1:
+        return arr.ravel()
+    return arr
 
 
 def main():
-    # _ _SOLUTION METHOD _ _
-    solution_method = 'R1'  # 'exact', 'CEC', 'R1', 'R2'
+    # __ SOLUTION METHOD __
+    solution_method = 'R1'
+    method_code = METHOD_MAP[solution_method]
 
-    # _ _SUBOPTIMAL DECISIONS _ _
-    excel_path = '2_Inventory_Model/1_Model/Optimizer/Stochastic_Regimes_MR-MO.xlsx'
-    df_excel = pd.read_excel(excel_path, sheet_name=0, header=None)
+    # __ SUBOPTIMAL DECISIONS __
+    suboptimal_decision_vector_R1 = read_excel_range(
+        'Stochastic_Regimes_MR-MO.xlsx', 0, 'B4:B8')
+    suboptimal_decision_vector_R2 = read_excel_range(
+        'Stochastic_Regimes_MR-MO.xlsx', 0, 'C4:C8')
+    suboptimal_decision_matrix_CEC = read_excel_range(
+        'Stochastic_Regimes_MR-MO.xlsx', 0, 'F4:J8')
 
-    # The MATLAB ranges:
-    # suboptimal_decision_vector_R1 = xlsread(...,'B4:B8')  -> B4..B8 is rows 4..8 of column B
-    # suboptimal_decision_vector_R2 = xlsread(...,'C4:C8')
-    # suboptimal_decision_matrix_CEC = xlsread(...,'F4:J8') -> rows 4..8, columns F..J (5 columns)
-    # Extract ranges using 0-based indices
-    r_start = 4 - 1
-    r_end = 8
-    # Column B is index 1, C is index 2, F..J is 5..9
-    suboptimal_decision_vector_R1 = df_excel.iloc[r_start:r_end, 1].astype(float).to_numpy()
-    suboptimal_decision_vector_R2 = df_excel.iloc[r_start:r_end, 2].astype(float).to_numpy()
-    suboptimal_decision_matrix_CEC = df_excel.iloc[r_start:r_end, 5:10].astype(float).to_numpy()
+    # __ INVENTORY COST __
+    t_max = 4
+    ch = 1.0
+    cp = 40.0
 
-    # _ _INVENTORY COST _ _
-    variables = {}
-    variables['t_max'] = 4
-    variables['ch'] = 1
-    variables['cp'] = 40
-
-    # _ _DEMAND _ _
-    variables['d_max'] = 30
-    variables['I_max'] = 120
-    demand_dist = 'uniform'  # 'uniform', 'normal', 'poisson', 'nbin', 'manual'
-    variables['normal'] = {'mu': 15, 'sigma': 3}
-    variables['poisson'] = {'lambda': 1}
-    variables['nbin'] = {'r': 22.5, 'p': 0.6}
+    # __ DEMAND __
+    d_max = 30
+    I_max = 120
+    demand_dist = 'uniform'
+    dist_code = DIST_MAP[demand_dist]
+    normal_mu = 15.0
+    normal_sigma = 3.0
+    poisson_lambda = 1.0
+    nbin_r = 22.5
+    nbin_p = 0.6
     start_inventory = 0
 
-    # _ _PRICE PROCESS _ _
-    variables['k'] = np.asarray([[0.5, 0.5], [0.5, 0.5]])
-    variables['m'] = 2
-    beliefs = np.asarray([0.1, 0.3, 0.5, 0.7, 0.9])
-    variables['prices'] = np.asarray([10, 15, 20, 25, 30])
-    price_dist = ['mean_reverting', 'momentum'] # random_walk
-    variables['P_pr_reg'] = 0  
+    # __ PRICE PROCESS __
+    k = np.array([[0.5, 0.5], [0.5, 0.5]])
+    m = 2
+    beliefs = np.array([0.1, 0.3, 0.5, 0.7, 0.9])
+    prices = np.array([10.0, 15.0, 20.0, 25.0, 30.0])
+    price_dist = ['MR', 'MO']
+    P_pr_reg = 0.0  # not used for Markov case, but must be defined
 
-    num_prices = len(variables['prices'])
-    for i in range(num_prices):
-        observed_price = variables['prices'][i]
-        for h in range(num_prices):
-            last_price = variables['prices'][h]
-            for j in range(len(beliefs)):
+    # __ BUILD VARIABLES DICT __
+    variables = {
+        'ch': ch, 'cp': cp, 'd_max': d_max, 'I_max': I_max,
+        'k': k, 'm': m, 'pi': None,  # set per iteration
+        'P_pr_reg': P_pr_reg, 't_max': t_max, 'prices': prices,
+        'normal_mu': normal_mu, 'normal_sigma': normal_sigma,
+        'poisson_lambda': poisson_lambda, 'nbin_r': nbin_r, 'nbin_p': nbin_p,
+    }
+
+    # __ CALCULATIONS START __
+    for i in range(len(prices)):
+        observed_price = prices[i]
+        for h in range(1):  # range(len(prices))
+            last_price = prices[h]
+            for j in range(1):  # range(len(beliefs))
                 pi1 = beliefs[j]
-                variables['pi'] = [pi1, 1.0 - pi1]
+                variables['pi'] = np.array([pi1, 1.0 - pi1])
 
-                # MATLAB loop: for T = variables.t_max
-                for T in [variables['t_max']]:
+                suboptimal_decision_CEC = int(suboptimal_decision_matrix_CEC[j, i])
+                suboptimal_decision_R1 = int(suboptimal_decision_vector_R1[i])
+                suboptimal_decision_R2 = int(suboptimal_decision_vector_R2[i])
+
+                for T in [t_max]:
                     variables['t_max'] = T
-                    t0 = time.time()
+                    tic = time.time()
+
                     periods = backward_recursion_markov(
                         variables, observed_price, last_price, start_inventory,
-                        demand_dist, price_dist, solution_method,
-                        suboptimal_decision_matrix_CEC, suboptimal_decision_vector_R1, suboptimal_decision_vector_R2
+                        dist_code, price_dist, method_code,
+                        suboptimal_decision_CEC, suboptimal_decision_R1,
+                        suboptimal_decision_R2
                     )
-                    if periods:
-                        p0 = periods[0]  # results for period 0
-                        print(f"<------------Planning horizon : {T} periods --------------------->")
-                        print("-" * 70)
-                        print(f"For planning horizon of {T} periods, and observed price sequence: {last_price} --> {observed_price} and initial belief {variables['pi']}:")
-                        print(f"Optimal Order Decision: {p0.get('period_min_order')}")
-                        print(f"Minimum Total Expected Cost: {p0.get('period_min_cost')}")
-                        print("-" * 70)
-                        # Safe gap calculations (avoid division by zero)
-                        min_cost = p0.get('period_min_cost', 0.0) or 0.0
 
-                        cec_cost = p0.get('suboptimal_cost_CEC', float('nan'))
-                        if min_cost != 0:
-                            gap_cec = (cec_cost / min_cost) * 100.0 - 100.0
-                        else:
-                            gap_cec = float('nan')
-                        print(f"Suboptimal Cost (order decision (CEC): {suboptimal_decision_matrix_CEC}): {cec_cost}")
-                        print(f"Optimality gap in % total cost (CEC): {gap_cec}")
-                        print("-" * 70)
+                    toc = time.time()
 
-                        r1_cost = p0.get('suboptimal_cost_R1', float('nan'))
-                        if min_cost != 0:
-                            gap_r1 = (r1_cost / min_cost) * 100.0 - 100.0
-                        else:
-                            gap_r1 = float('nan')
-                        print(f"Suboptimal Cost (order decision (R1): {suboptimal_decision_vector_R1}): {r1_cost}")
-                        print(f"Optimality gap in % total cost (R1): {gap_r1}")
-                        print("-" * 70)
+                    if periods is not None:
+                        print(f'<------------Planning horizon : {T} periods --------------------->')
+                        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+                        print(f'For planning horizon of {T} periods, and observed price '
+                              f'sequence: {last_price}-->{observed_price} and initial belief '
+                              f'{variables["pi"]}:')
+                        print(f'Optimal Order Decision: {periods[0]["period_min_order"]}')
+                        print(f'Minimum Total Expected Cost: {periods[0]["period_min_cost"]}')
+                        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+                        print(f'Suboptimal Cost (order decision (CEC): '
+                              f'{suboptimal_decision_CEC}): '
+                              f'{periods[0]["suboptimal_cost_CEC"]}')
+                        opt_gap_CEC = (periods[0]['suboptimal_cost_CEC']
+                                       / periods[0]['period_min_cost'][0] * 100 - 100)
+                        print(f'Optimality gap in % total cost (CEC): {opt_gap_CEC}')
+                        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+                        print(f'Suboptimal Cost (order decision (R1): '
+                              f'{suboptimal_decision_R1}): '
+                              f'{periods[0]["suboptimal_cost_R1"]}')
+                        opt_gap_R1 = (periods[0]['suboptimal_cost_R1']
+                                      / periods[0]['period_min_cost'][0] * 100 - 100)
+                        print(f'Optimality gap in % total cost (R1): {opt_gap_R1}')
+                        print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
+                        print(f'Suboptimal Cost (order decision (R2): '
+                              f'{suboptimal_decision_R2}): '
+                              f'{periods[0]["suboptimal_cost_R2"]}')
+                        opt_gap_R2 = (periods[0]['suboptimal_cost_R2']
+                                      / periods[0]['period_min_cost'][0] * 100 - 100)
+                        print(f'Optimality gap in % total cost (R2): {opt_gap_R2}')
 
-                        r2_cost = p0.get('suboptimal_cost_R2', float('nan'))
-                        if min_cost != 0:
-                            gap_r2 = (r2_cost / min_cost) * 100.0 - 100.0
-                        else:
-                            gap_r2 = float('nan')
-                        print(f"Suboptimal Cost (order decision (R2): {suboptimal_decision_vector_R2}): {r2_cost}")
-                        print(f"Optimality gap in % total cost (R2): {gap_r2}")
-
-                    t_elapsed = time.time() - t0
-                    print(f"(Elapsed time: {t_elapsed:.4f} seconds)")
-                    
-    # End loops
-    print("Finished run.")
+                    print(f'Elapsed time: {toc - tic:.3f} seconds')
 
 
 if __name__ == '__main__':

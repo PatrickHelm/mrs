@@ -1,20 +1,33 @@
 import numpy as np
 from numba import njit
-num_regimes = 2
 
-# @njit
-def next_price(belief_vector: np.ndarray, 
-               regime_transition_probabilities: np.ndarray
-               ) -> np.ndarray:
-    belief_size = belief_vector.shape[0]
-    result = np.zeros((belief_size, len(regime_transition_probabilities)))
 
-    for i in range(belief_size):
-        for j in range(len(regime_transition_probabilities)):
-            for r in range(num_regimes):
-                result[i, j] += belief_vector[i, r] * regime_transition_probabilities[j, r]
+@njit(cache=True)
+def next_price(PI, P_pr_reg):
+    """Calculate probabilities for all possible prices in t+1.
 
-    if belief_size == 1:  # case for t=1, for consistency.
-        result = result.T
+    Parameters
+    ----------
+    PI : np.ndarray, shape (n_beliefs, 2)
+        Belief matrix. Each row is [prob_regime1, prob_regime2].
+    P_pr_reg : np.ndarray, shape (n_prices, 2)
+        Price probability distributions per regime.
 
-    return result
+    Returns
+    -------
+    res : np.ndarray
+        If n_beliefs == 1: shape (n_prices, 1) — column vector for consistency.
+        Otherwise: shape (n_beliefs, n_prices).
+    """
+    n_beliefs = PI.shape[0]
+    n_prices = P_pr_reg.shape[0]
+    res = np.zeros((n_beliefs, n_prices))
+
+    for i in range(n_beliefs):
+        for j in range(n_prices):
+            res[i, j] = PI[i, 0] * P_pr_reg[j, 0] + PI[i, 1] * P_pr_reg[j, 1]
+
+    if n_beliefs == 1:
+        # Transpose for consistency (MATLAB returns column vector for t=1)
+        return res.T
+    return res

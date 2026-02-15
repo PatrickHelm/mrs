@@ -1,53 +1,133 @@
-
 import numpy as np
+from numba import njit
 
-def update_pi_markov(markovmodel, prices, t, PI, k, solution_method):
-    NoP = len(prices)  # Number of Prices
-    PI_markov = [None, None]
-    R1 = markovmodel[0]  # probability transition matrix for R1
-    R2 = markovmodel[1]  # probability transition matrix for R2
+CEC = 1
+R1 = 2
+R2 = 3
 
-    if t == 1:  # for t=1 the belief update values are given
-        PI_markov[0] = PI[0]
-        PI_markov[1] = PI[1]
-        return PI_markov
 
-    PI_markov1 = np.zeros((NoP**(t-1), NoP))
-    PI_markov2 = np.zeros((NoP**(t-1), NoP))
-    PI_past_R1 = PI[t-2][0]  # belief updates in t-1 for R1
-    PI_past_R2 = PI[t-2][1]  # belief updates in t-1 for R2
+@njit(cache=True)
+def _update_pi_markov_core(R1_mat, R2_mat, NoP, t, PI_past_R1, PI_past_R2,
+                           k, method_code, initial_pi_r1, initial_pi_r2):
+    """Core Bayesian update loop for Markov model (t >= 2).
 
-    if t == 2:  # blow up the size of the belief in period 1 by copying its value NoP times
-        PI_past_R1 = np.tile(PI_past_R1, (1, NoP))
-        PI_past_R2 = np.tile(PI_past_R2, (1, NoP))
+    Parameters
+    ----------
+    R1_mat, R2_mat : np.ndarray (NoP, NoP)
+        Transition matrices.
+    NoP : int
+        Number of prices.
+    t : int
+        Current period (1-based).
+    PI_past_R1, PI_past_R2 : np.ndarray
+        Previous period belief matrices.
+    k : np.ndarray (2, 2)
+        Regime transition probabilities.
+    method_code : int
+        Solution method code.
+    initial_pi_r1, initial_pi_r2 : float
+        Initial beliefs for CEC fallback.
 
-    i = 0
-    j = 0
-    while j < NoP**(t-1):
-        for last_price in range(NoP):  # p_past is the price in the last period p_(t-1)
-            for p_t in range(NoP):  # p_t is the price in the actual period t
-                if solution_method == 'CEC':
-                    PI_markov1[j, p_t] = PI[0][0]
-                    PI_markov2[j, p_t] = PI[0][1]
-                elif solution_method == 'R1':
-                    PI_markov1[j, p_t] = 1
-                    PI_markov2[j, p_t] = 0
-                elif solution_method == 'R2':
-                    PI_markov1[j, p_t] = 0
-                    PI_markov2[j, p_t] = 1
+    Returns
+    -------
+    PI_markov1, PI_markov2 : np.ndarray, shape (NoP^(t-1), NoP)
+    """
+    result_rows = 1
+    for _ in range(t - 1):
+        result_rows *= NoP
+
+    PI_markov1 = np.zeros((result_rows, NoP))
+    PI_markov2 = np.zeros((result_rows, NoP))
+
+    i = 0  # index for PI_past (0-based)
+    j = 0  # index for result (0-based)
+
+    while j < result_rows:
+        for last_price in range(NoP):
+            for p_t in range(NoP):
+                if method_code == CEC:
+                    PI_markov1[j, p_t] = initial_pi_r1
+                    PI_markov2[j, p_t] = initial_pi_r2
+                elif method_code == R1:
+                    PI_markov1[j, p_t] = 1.0
+                    PI_markov2[j, p_t] = 0.0
+                elif method_code == R2:
+                    PI_markov1[j, p_t] = 0.0
+                    PI_markov2[j, p_t] = 1.0
                 else:
-                    numerator_R1 = (PI_past_R1[i, last_price] * k[0, 0] * R1[last_price, p_t] +
-                                    PI_past_R2[i, last_price] * k[0, 1] * R2[last_price, p_t])
-                    denominator = (PI_past_R1[i, last_price] * R1[last_price, p_t] +
-                                   PI_past_R2[i, last_price] * R2[last_price, p_t])
-                    numerator_R2 = (PI_past_R1[i, last_price] * k[1, 0] * R1[last_price, p_t] +
-                                    PI_past_R2[i, last_price] * k[1, 1] * R2[last_price, p_t])
+                    # Bayesian update
+                    denom = (PI_past_R1[i, last_price] * R1_mat[last_price, p_t]
+                             + PI_past_R2[i, last_price] * R2_mat[last_price, p_t])
 
-                    PI_markov1[j, p_t] = numerator_R1 / denominator if denominator != 0 else PI_past_R1[i, last_price]
-                    PI_markov2[j, p_t] = numerator_R2 / denominator if denominator != 0 else PI_past_R2[i, last_price]
+                    if denom == 0.0:
+                        PI_markov1[j, p_t] = PI_past_R1[i, last_price]
+                        PI_markov2[j, p_t] = PI_past_R2[i, last_price]
+                    else:
+                        num_r1 = (PI_past_R1[i, last_price] * k[0, 0] * R1_mat[last_price, p_t]
+                                  + PI_past_R2[i, last_price] * k[0, 1] * R2_mat[last_price, p_t])
+                        num_r2 = (PI_past_R1[i, last_price] * k[1, 0] * R1_mat[last_price, p_t]
+                                  + PI_past_R2[i, last_price] * k[1, 1] * R2_mat[last_price, p_t])
+                        PI_markov1[j, p_t] = num_r1 / denom
+                        PI_markov2[j, p_t] = num_r2 / denom
 
-        j += 1
+                        # NaN check (already handled by denom==0 above, but keep for safety)
+                        if np.isnan(PI_markov1[j, p_t]):
+                            PI_markov1[j, p_t] = PI_past_R1[i, last_price]
+                        if np.isnan(PI_markov2[j, p_t]):
+                            PI_markov2[j, p_t] = PI_past_R2[i, last_price]
+            j += 1
         i += 1
 
-    PI_markov = [PI_markov1, PI_markov2]
-    return PI_markov
+    return PI_markov1, PI_markov2
+
+
+def update_pi_markov(R1_mat, R2_mat, prices, t, PI_markov_list, k, method_code):
+    """Compute Markov belief update PI_markov for period t.
+
+    Parameters
+    ----------
+    R1_mat, R2_mat : np.ndarray (NoP, NoP)
+        Markov transition matrices.
+    prices : np.ndarray
+        Vector of possible prices.
+    t : int
+        Current period (1-based).
+    PI_markov_list : list or np.ndarray
+        If t==1: np.ndarray of shape (2,) — initial beliefs [pi_R1, pi_R2]
+        If t>=2: list of [PI_R1, PI_R2] pairs for each past period
+    k : np.ndarray (2, 2)
+        Regime transition probabilities.
+    method_code : int
+        Solution method code.
+
+    Returns
+    -------
+    list : [PI_markov1, PI_markov2]
+        For t==1: [scalar, scalar]
+        For t>=2: [np.ndarray, np.ndarray] of shape (NoP^(t-1), NoP)
+    """
+    NoP = len(prices)
+
+    if t == 1:
+        # For t=1, belief values are given directly
+        return [PI_markov_list[0], PI_markov_list[1]]
+
+    # Get past beliefs
+    PI_past_R1 = PI_markov_list[t - 2][0]  # beliefs in t-1 for R1
+    PI_past_R2 = PI_markov_list[t - 2][1]  # beliefs in t-1 for R2
+
+    # For t==2, PI_past is scalar -> replicate to (1, NoP) matrix
+    if t == 2:
+        PI_past_R1 = np.full((1, NoP), PI_past_R1)
+        PI_past_R2 = np.full((1, NoP), PI_past_R2)
+
+    # Get initial beliefs for CEC fallback
+    initial_pi_r1 = float(PI_markov_list[0][0])
+    initial_pi_r2 = float(PI_markov_list[0][1])
+
+    PI_m1, PI_m2 = _update_pi_markov_core(
+        R1_mat, R2_mat, NoP, t, PI_past_R1, PI_past_R2,
+        k, method_code, initial_pi_r1, initial_pi_r2
+    )
+
+    return [PI_m1, PI_m2]
