@@ -7,7 +7,7 @@ if t==1 %In the first period all minimum values from period t+1=2 are under exam
     mins=all_mins;
 else
     block=numel(prices);   % number of possible prices 
-    index=find(PI_needed{t}==act_pi); %returns index of the the value 'actPI' in the vector 'PI_needed'; actPi is belief update 
+    index=find(PI_needed{t}==act_pi, 1); %returns index of the the value 'actPI' in the vector 'PI_needed'; actPi is belief update
     ende=index*block;
     start=ende-(block-1);
     future_PI=PI_needed{t+1}(start:ende); %'futurePI' is a vector containing all belief update values arising in t+1 from the actual belief update value 'actPi'
