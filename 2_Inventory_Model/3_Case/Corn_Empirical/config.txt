@@ -1,0 +1,13 @@
+# Corn empirical case — §5.2.1 of Mandl & Minner paper
+# Non-Markov (i.i.d. regime switching)
+# Units: all in cents/bu (prices from CSV are cents/bu)
+# Paper: cp = $10/bu = 1000 cents/bu
+#        ch in {0.01, 0.10, 0.40} $/bu/month = {1, 10, 40} cents/bu/month
+ch = 10.0
+cp = 1000.0
+t_max = 4
+d_max = 1
+I_max = 4
+start_inventory = 0
+demand_dist = manual
+solution_method = exact
